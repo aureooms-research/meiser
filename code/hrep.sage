@@ -51,16 +51,29 @@ def Shrep( A , n , S ) :
 	X = frozenset( S )
 	r = len( S )
 
-	if len( S ) < n + 1 :
+	if r < n + 1 :
 		# if simplex is not full dimensional we need to add some artificial
-		# vertices
+		# vertices (e_i vectors spawned from an arbitrary vertex S[0])
 		G = frozenset( S )
 		H = ( vadd( S[0] , [ 0 ] * i + [ 1 ] + [ 0 ] * ( n - i - 1 ) ) for i in range( n ) )
 		O = _maxindset( A , G , H )
+		S.extend( O )
 
-    for i in range( n + 1 ) :
-        yield Hhrep( A , n , S[:i] + S[i+1:] )
+	# hyperplanes that do not contain all vertices of S
+	# spawn inequality constraints
+    for i in range( r ) :
+		h = Hhrep( A , n , S[:i] + S[i+1:] )
+        pv[h] = pos( tuple( h.coefficients( ) ) , S[i] )
 
-list( Shrep( H , n , ( ( 0 , 0 , 0 ) , ( 1 , 0 , 0 ) , ( 0 , 1 , 0 ) , ( 0 , 0 , 1 ) ) ) )
-list( Shrep( H , n , ( ( 1 , 1 , 1 ) , ( 1 , 0 , 0 ) , ( 0 , 1 , 0 ) , ( 0 , 0 , 1 ) ) ) )
+	# hyperplanes that contain all vertices of S
+	# spawn equality constraints
+	for i in range( r + 1 , n + 1 ) :
+		h = Hhrep( A , n , S[:i] + S[i+1:] )
+		pv[h] = 0
 
+	return pv
+
+Shrep( H , n , ( ( 0 , 0 , 0 ) , ( 1 , 0 , 0 ) , ( 0 , 1 , 0 ) , ( 0 , 0 , 1 ) ) )
+Shrep( H , n , ( ( 1 , 1 , 1 ) , ( 1 , 0 , 0 ) , ( 0 , 1 , 0 ) , ( 0 , 0 , 1 ) ) )
+Shrep( H , n , ( ( 0 , 0 , 0 ) , ( 1 , 0 , 0 ) ) )
+Shrep( H , n , ( ( 0 , 0 , 0 ) ) )

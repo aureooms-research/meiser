@@ -34,10 +34,10 @@ def A5 ( A , n , k , q , delta = 1 ) :
 
     # compute a simplex with A1
     # this costs O(n^3 log^3 n) queries and time O(n^(2+c) log^2 n)
-    I = frozenset( chain( map( Shrep , S ) for S in simplices if len( S ) == n + 1 ) )
-    E = frozenset( )
-    C = frozenset( S for S in simplices if len( S ) <= n )
-    S = A1( A , n , I , E , { } , q , C )
+	pv = ChainMap( *chain( map( Shrep , simplices ) ) , pv )
+    I = frozenset( h for h , s in pv.items( ) if s != 0 )
+    E = frozenset( h for h , s in pv.items( ) if s == 0 )
+    S = A1( A , n , I , E , pv , q )
 
     yield EVENT_SIMPLEX , S
 

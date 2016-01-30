@@ -2,40 +2,16 @@
 #   > T1(n,H) = O(n^c|H|)
 #   > Q1(n,H) = O(n|H|)
 
-def A1 ( A , n , I , E , pv , q , C = None ) :
+def A1 ( A , n , I , E , pv , q ) :
 
     """
-    Runs in time O(n^c(|I|+|E|+|C|)) and asks O(n|I|) queries
-       - C is an optional parameter that restrict the search for the simplex to a subspace,
-         C a list of simplices that contain q.
+    Runs in time O(n^c(|I|+|E|)) and asks O(n|I|) queries
     """
-    if C is None : r = n
-    else :
-        # we need to compute the rank of the matrix defined by convex combination
-        # constraints of the simplices that are not fully dimensional.
-        # an Stores the number of variables added for each simplex.
-        # SIMPLICES contain q in their interior so the intersection of two d-simplices
-        # lying on the same d-flat is d-dimensional.
-        an = sum( len( S ) for S in C )
-        M = [ ]
-        i = 0
-        for S in C :
-            d = len( S )
-            # a1 + a2 + ... + a3 = 1
-            M.append( [ 0 ] * n + [ 0 ] * i + [ 1 ] * d + [ 0 ] * ( an - i - d ) + [ 1 ] )
-            for j in range( n ) :
-                # a1 v11 + a2 v21 + ... + a3 v31 = x1
-                # a1 v12 + a2 v22 + ... + a3 v32 = x2
-                # .. ... + .. ... + ... + .. ... = ..
-                # a1 v1n + a2 v2n + ... + a3 v3n = xn
-                M.append( [ 0 ] * ( j ) + [ -1 ] + [ 0 ] * ( n - j - 1 ) + [ 0 ] * i + [ v[j] for v in S ] + [ 0 ] * ( an - i - d ) + [ 0 ] )
-            i += d
 
-        r = matrix( A._base_ring , M ).rank( )
+    assert( len( E ) <= n )
 
     # base case, the subspace E has dimension 0
-    assert( len( E ) <= r )
-    if len( E ) == r :
+    if len( E ) == n :
         return frozenset( [ q ] )
 
     # pick a random objective function f
