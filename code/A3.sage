@@ -9,14 +9,14 @@ def A3(A, n, k, v1, v2):
 
     # handles k even or odd
     ckt = ceil(k / 2)
-    fkt = floor(K / 2)
+    fkt = floor(k / 2)
 
     M = n**ckt
     N = n**fkt
 
     # kSUM k/2-tuples
-    X = list(product(range(n), ckt))
-    Y = list(product(range(n), fkt))
+    X = list(product(range(n), repeat=ckt))
+    Y = list(product(range(n), repeat=fkt))
 
     # sums in v1 and v2
     SX1 = {t: sum(v1[i] for i in t) for t in X}

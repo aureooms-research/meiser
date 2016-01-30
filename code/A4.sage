@@ -26,6 +26,6 @@ def A4(n, k, v):
         S.append(s)
 
     for t in kSUM(k, S):
-        yield t
+        yield EVENT_TUPLE , t
 
     yield EVENT_EXIT , 'A4'

@@ -9,6 +9,13 @@ def tupleToHyperplane(V, n, t):
     c = Counter(t)
     return V([0] + [c[i] for i in range(n)])
 
+def hyperplaneToTuples ( h ) :
+    b , a = ba( h )
+    assert( b == 0 )
+    c = Counter()
+    for i , count in enumerate( a ) :
+        c[i] = count
+    return unique_permutations( tuple(c.elements( )) )
 
 def randomkSUMHyperplane(V, n, k):
     return tupleToHyperplane(V, n, randomkSUMTuple(n, k))

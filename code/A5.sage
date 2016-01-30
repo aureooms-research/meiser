@@ -60,8 +60,12 @@ def A5(A, n, k, q, delta=1):
 
     # if |S| < n + 1, use A4 to detect if any k-SUM hyperplane contains S
     if len(S) < n + 1:
-        for t in A4(n, k, S):
-            yield EVENT_BINGO, t
+        for event in A4(n, k, S):
+            event_type, data = event
+            if event_type == EVENT_TUPLE:
+                yield EVENT_BINGO, data
+            else:
+                yield event
 
     # if |S| is not a 0-simplex,
     # use A3 to compute the hyperplanes that intersect S
@@ -72,21 +76,19 @@ def A5(A, n, k, q, delta=1):
             for event in A3(A, n, k, v1, v2) :
                 event_type, data = event
                 if event_type == EVENT_TUPLE:
-                    _H.add( data )
+                    _H.add( tupleToHyperplane( V , n , data ) )
                 else:
                     yield event
 
         for event in A2(A, n, BB, _H, q):
             event_type, data = event
-            if event_type == EVENT_SIMPLEX:
-                pass
-            elif event_type == EVENT_PV:
-                pv = ChainMap(data, pv)
+            if event_type == EVENT_PV:
+                for h, s in data.items():
+                    if s == 0:
+                        for t in hyperplaneToTuples( h ) :
+                            yield EVENT_BINGO, t
             else:
-                pass
+                yield event
 
-        for h, s in pv.items():
-            if s == 0:
-                yield EVENT_BINGO, h
 
     yield EVENT_EXIT , 'A5'

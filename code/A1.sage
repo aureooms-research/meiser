@@ -12,6 +12,8 @@ def A1(A, n, I, E, pv, q):
 
     assert(len(E) <= n)
 
+    log( 'q' , q )
+
     # base case, the subspace E has dimension 0
     if len(E) == n:
         yield EVENT_SIMPLEX , frozenset([q])
@@ -21,7 +23,8 @@ def A1(A, n, I, E, pv, q):
     # pick a random objective function f
     f = [random() for i in range(n)]
     # construct the LP
-    lp = MixedIntegerLinearProgram(maximization=True)
+    # (PPL for exact computation)
+    lp = MixedIntegerLinearProgram(maximization=True, solver='PPL')
     # define the variables x_i
     _x = lp.new_variable(real=True)
     x = [_x[i] for i in range(n)]
@@ -31,7 +34,7 @@ def A1(A, n, I, E, pv, q):
     for h in I | E:
         b, a = ba(h)
         fn = b + vdot(a, x)
-        log( 'c' , pv[h] , h , fn )
+        log( 'c' , pv[h] , ':' , h , '|' , fn )
         if pv[h] < 0:
             lp.add_constraint(fn <= 0)
         elif pv[h] > 0:
@@ -45,7 +48,8 @@ def A1(A, n, I, E, pv, q):
     lp.solve()
     # retrieve v
     _v = lp.get_values(_x)
-    v = [_v[i] for i in range(n)]
+    v = tuple(_v[i] for i in range(n))
+    log( 'v' , v )
 
     # compute lambda for all hyperplanes in I
     # (this can and should be implemented as linear queries)
@@ -54,8 +58,8 @@ def A1(A, n, I, E, pv, q):
 
     # find minimum > 0
     # (this can and should be implemented as linear queries)
-    Lt = min(L[h] for h in I if L[h] > 0)
-    Ht = set(h for h in I if L[h] == Lt)
+    Lt = min(L[h] for h in I if h in L and L[h] > 0)
+    Ht = set(h for h in I if h in L and L[h] == Lt)
 
     _I = I - Ht
     _E = maxindset(A, n, E, Ht)
@@ -65,7 +69,7 @@ def A1(A, n, I, E, pv, q):
     for event in  A1(A, n, _I, _E, _pv, _q) :
         event_type, data = event
         if event_type == EVENT_SIMPLEX:
-            S = frozenset([s]) | _S
+            S = frozenset([v]) | data
             yield EVENT_SIMPLEX , S
         else:
             yield event

@@ -19,7 +19,10 @@ def A2(A, n, BB, H, q, epsilon=1 / 2, delta=1):
     # there are thus O(log|H|) recursive steps
     if enetsize >= len(H):
         AH = A(*H)
-        yield EVENT_PV, {h: s for (h, s) in zip(AH.hyperplanes(), AH.sign_vector(q))}
+        pv = ChainMap({h: s for (h, s) in zip(AH.hyperplanes(),
+            AH.sign_vector(q))},BB)
+        yield EVENT_PV, pv
+        yield EVENT_EXIT , 'A2'
         return
 
     # N is an e-net with probability ...
@@ -30,6 +33,8 @@ def A2(A, n, BB, H, q, epsilon=1 / 2, delta=1):
     # this costs O(|N|) queries and time
     pv = ChainMap({h: s for (h, s) in zip(
         AN.hyperplanes(), AN.sign_vector(q))}, BB)
+
+    log( BB )
 
     # compute a simplex with A1
     I = frozenset(h for h in N if pv(h) != 0) | BB.keys()
