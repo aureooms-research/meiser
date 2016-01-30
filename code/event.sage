@@ -1,0 +1,5 @@
+# events
+EVENT_BINGO = -1
+EVENT_SIMPLEX = 0
+EVENT_PV = 1
+
