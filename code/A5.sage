@@ -47,7 +47,7 @@ def A5(A, n, k, q, delta=1):
     # this costs O(n^3 log^3 n) queries and time O(n^(2+c) log^2 n)
     pv = reduce( ChainMap , map(Shrep, simplices) , pv )
     I = frozenset(h for h, s in pv.items() if s != 0)
-    E = frozenset(h for h, s in pv.items() if s == 0)
+    E = maxindset(A, n, frozenset(), frozenset(h for h, s in pv.items() if s == 0) )
     for event in A1(A, n, I, E, pv, q) :
         event_type , data = event
         if event_type == EVENT_SIMPLEX :

@@ -28,11 +28,11 @@ args = sys.argv[1:]
 
 if len( args ) < 2 :
     print( '  usage: time sage main.sage <k> <input>')
-    print( 'example: time sage main.sage 3 \'(1/2,-1/3,-1/6)\'')
+    print( 'example: time sage main.sage 3 1/2 -1/3 -1/6')
     sys.exit( 1 )
 
 k = int(args[0])
-q = sage_eval( args[1] )
+q = tuple(map(sage_eval, args[1:] ))
 # parameters
 field = QQ
 n = len(q)
