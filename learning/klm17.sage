@@ -183,19 +183,19 @@ class S (object):
         _sign = self._.index(Si) - 1
 
         if _sign == 0:
-            _sorted = list(self.sample)
+            _sorted = Si
             h1 = _sorted[0]
 
         elif _sign == 1:
-            _sorted = sorted(self.sample, key = O.label)
+            _sorted = sorted(Si, key = O.label)
             h1 = _sorted[0]
 
         else:
-            _sorted = list(reversed(sorted(self.sample, key = O.label)))
+            _sorted = list(reversed(sorted(Si, key = O.label)))
             h1 = _sorted[0]
 
 
-        delta = [ vsub(a, b) for (a,b) in zip(_sorted,_sorted[1:]) ]
+        delta = [ vsub(b, a) for (a,b) in zip(_sorted,_sorted[1:]) ]
 
         for h in H:
 
@@ -207,16 +207,13 @@ class S (object):
 
 def isnonnegativelinearcombination( v , U ) :
 
-    # p = MixedIntegerLinearProgram(maximization=False, solver = "GLPK")
-    p = MixedIntegerLinearProgram(maximization=False, solver = "PPL")
+    p = MixedIntegerLinearProgram(maximization=False, solver = "GLPK")
+    # p = MixedIntegerLinearProgram(maximization=False, solver = "PPL")
     a = p.new_variable(nonnegative=True, real=True)
     for j, hj in enumerate(v):
         p.add_constraint(p.sum(a[i]*Ui[j] for (i, Ui) in enumerate(U)), min=hj, max=hj)
 
     p.set_objective(None) #just looking for feasible solution
-    # p.set_objective(p.sum(a[i] for i in range(len(U)))) #smallest solution
-
-    p.show()
 
     try:
         sol = p.solve()
@@ -282,6 +279,7 @@ if __name__ == '__main__':
     print('d', d)
     print('2d', 2*d)
     print('|H|', len(_H))
+    print('q', O._q)
 
     A = KLM17(O, _H, d)
     print('# label queries:', O.label_queries)
