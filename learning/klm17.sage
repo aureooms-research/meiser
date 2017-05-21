@@ -96,7 +96,7 @@ class S (object):
         for key, val in self.v.items():
             self._[1 + val].append(key)
 
-    def infer(self, H):
+    def pick_side(self):
 
         Si = max(self._, key=len)
         _sign = self._.index(Si) - 1
@@ -119,13 +119,32 @@ class S (object):
         A = matrix(delta).transpose()
         A.set_immutable()
 
+        return ( _sign , h1 , A )
+
+
+    def infer(self, H):
+
+        _sign, h1, A = self.pick_side()
+
         for h in H:
 
-            if h in self.sample:
-                yield ( h , self.v[h] )
+            s = infer_one(_sign, self.v, h1, A, h)
 
-            elif isnonnegativelinearcombination(h-h1, A):
-                yield ( h , _sign )
+            if s is not None:
+
+                yield ( h , s )
+
+
+def infer_one( _sign , S , h1 , A , h ) :
+
+    if h in S :
+        return S[h]
+
+    elif isnonnegativelinearcombination(h-h1, A):
+        return _sign
+
+    else :
+        return None
 
 def isnonnegativelinearcombination( b , A ) :
 
