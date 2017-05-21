@@ -9,24 +9,6 @@ from random import sample
 from functools import total_ordering
 from sage.numerical.mip import MIPSolverException
 
-def q(n):
-    """
-        Generates a random input of size n.
-
-        >>> len(q(0)) == 0
-        True
-
-        >>> len(q(4187)) == 4187
-        True
-
-        >>> isinstance(q(10), tuple)
-        True
-
-    """
-
-    return tuple(random() - 0.5 for i in range(n))
-
-
 @total_ordering
 class Label (object):
 
@@ -189,7 +171,6 @@ def KLM17(O, H, d):
     return out
 
 def pigeonhole(m,n,w):
-
     return 2**(m-1) > ((2*e*(2*w+1)*m)/n)**n
 
 def M (c, n, w):
@@ -233,9 +214,9 @@ if __name__ == '__main__':
     m = M(c,n,w)
     d = 2*m+n
 
-    _q = vector(q(n))
-    _q.set_immutable()
-    O = Oracle(_q)
+    q = random_vector(RR,n)
+    q.set_immutable()
+    O = Oracle(q)
 
     _Hl = list(map(vector,ksum.tuples(k, n)))
     for v in _Hl: v.set_immutable()
@@ -258,6 +239,6 @@ if __name__ == '__main__':
     print('{} n log^2 n'.format( (O.label_queries + O.comparison_queries) / (n*log(n,2)**2) ) )
 
     if args.check :
-        O2 = Oracle(_q)
+        O2 = Oracle(q)
         expected = { h : O2.label(h).sign() for h in _H }
         print('OK', solution == expected )
