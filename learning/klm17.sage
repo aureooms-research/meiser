@@ -1,5 +1,6 @@
 #!/usr/bin/env sage
 
+import ksum
 from math import e
 from math import log
 from math import ceil
@@ -7,39 +8,6 @@ from random import random
 from random import sample
 from functools import total_ordering
 from sage.numerical.mip import MIPSolverException
-
-def H(k, n):
-    """
-        Yields the k-SUM hyperplanes coefficients for a k-SUM instance of size
-        n.
-
-        >>> list(H(2,3))
-        [(0, 1, 1), (1, 0, 1), (1, 1, 0)]
-
-        >>> from math import factorial
-        >>> binom = lambda n , k : factorial(n)/factorial(k)/factorial(n-k)
-        >>> len(list(H(4,10))) == binom(10,4)
-        True
-
-        >>> isinstance(next(H(2,3)), tuple)
-        True
-
-    """
-
-    if k > n:
-        return
-
-    if k == 0:
-        yield (0,) * n
-        return
-
-    for h in H(k, n - 1):
-
-        yield (0,) + h
-
-    for h in H(k - 1, n - 1):
-
-        yield (1,) + h
 
 def q(n):
     """
@@ -167,14 +135,15 @@ class S (object):
         delta = [ b - a for (a,b) in zip(_sorted,_sorted[1:]) ]
 
         A = matrix(delta).transpose()
+        A.set_immutable()
 
         for h in H:
 
             if h in self.sample:
-                yield h
+                yield ( h , self.v[h] )
 
             elif isnonnegativelinearcombination(h-h1, A):
-                yield h
+                yield ( h , _sign )
 
 def isnonnegativelinearcombination( b , A ) :
 
@@ -214,8 +183,8 @@ def KLM17(O, H, d):
         return A(O, H)
 
     _S = S(O, H, 2 * d)
-    infer = set(_S.infer(H))
-    out = { h : O.label(h) for h in infer }
+    out = dict(_S.infer(H))
+    infer = out.keys()
     out.update(KLM17(O, H.difference(infer), d))
     return out
 
@@ -261,7 +230,7 @@ if __name__ == '__main__':
     _q.set_immutable()
     O = Oracle(_q)
 
-    _Hl = list(map(vector,H(k, n)))
+    _Hl = list(map(vector,ksum.tuples(k, n)))
     for v in _Hl: v.set_immutable()
     _H = set(_Hl)
 
@@ -275,9 +244,12 @@ if __name__ == '__main__':
     print('|H|', len(_H))
     print('q', O._q)
 
-    A = KLM17(O, _H, d)
+    solution = KLM17(O, _H, d)
     print('# label queries:', O.label_queries)
     print('# comparison queries:', O.comparison_queries)
     print('n log^2 n', n*log(n,2)**2)
     print('{} n log^2 n'.format( (O.label_queries + O.comparison_queries) / (n*log(n,2)**2) ) )
-    # print('A', A )
+
+    O2 = Oracle(_q)
+    expected = { h : O2.label(h).sign() for h in _H }
+    print('OK', solution == expected )
