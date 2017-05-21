@@ -21,6 +21,9 @@ def H(k, n):
         >>> len(list(H(4,10))) == binom(10,4)
         True
 
+        >>> isinstance(next(H(2,3)), tuple)
+        True
+
     """
 
     if k > n:
@@ -38,7 +41,6 @@ def H(k, n):
 
         yield (1,) + h
 
-
 def q(n):
     """
         Generates a random input of size n.
@@ -49,52 +51,19 @@ def q(n):
         >>> len(q(4187)) == 4187
         True
 
-        >>> type(q(10))
-        <class 'tuple'>
+        >>> isinstance(q(10), tuple)
+        True
 
     """
 
     return tuple(random() - 0.5 for i in range(n))
 
-def vsub(a, b):
-
-    return tuple( x - y for (x,y) in zip(a,b) )
-
-def vdot(a, b):
-    """
-        Computes the dot product of two vectors.
-
-        >>> vdot((1, 3, -5), (4, -2, -1))
-        3
-
-    """
-
-    return sum(ai * bi for (ai, bi) in zip(a, b))
-
-
-def sign(x):
-    """
-        Parameters
-        ----------
-        x : int
-            The number you want to get the sign of.
-
-        >>> sign( 17 )
-        1
-        >>> sign( -3 )
-        -1
-        >>> sign( 0 )
-        0
-        >>> sign( -0.0 )
-        0
-
-    """
-
-    return 1 if x > 0 else -1 if x < 0 else 0
-
 
 @total_ordering
 class Label (object):
+
+    # should cache queries to make sure we do not overcount
+    # can use bitvector as description of query
 
     def __init__(self, oracle, value):
 
@@ -158,7 +127,7 @@ class Oracle (object):
 
     def label(self, h):
 
-        return Label(self, vdot(self._q, h))
+        return Label(self, self._q * h) # dot product
 
 
 def A(O, H):
@@ -195,24 +164,24 @@ class S (object):
             h1 = _sorted[0]
 
 
-        delta = [ vsub(b, a) for (a,b) in zip(_sorted,_sorted[1:]) ]
+        delta = [ b - a for (a,b) in zip(_sorted,_sorted[1:]) ]
+
+        A = matrix(delta).transpose()
 
         for h in H:
 
             if h in self.sample:
                 yield h
 
-            elif isnonnegativelinearcombination(vsub(h,h1), delta):
+            elif isnonnegativelinearcombination(h-h1, A):
                 yield h
 
-def isnonnegativelinearcombination( v , U ) :
+def isnonnegativelinearcombination( b , A ) :
 
-    p = MixedIntegerLinearProgram(maximization=False, solver = "GLPK")
-    # p = MixedIntegerLinearProgram(maximization=False, solver = "PPL")
-    a = p.new_variable(nonnegative=True, real=True)
-    for j, hj in enumerate(v):
-        p.add_constraint(p.sum(a[i]*Ui[j] for (i, Ui) in enumerate(U)), min=hj, max=hj)
-
+    p = MixedIntegerLinearProgram(solver = "GLPK")
+    # p = MixedIntegerLinearProgram(solver = "PPL")
+    x = p.new_variable(nonnegative=True, real=True)
+    p.add_constraint(A*x == b)
     p.set_objective(None) #just looking for feasible solution
 
     try:
@@ -250,26 +219,51 @@ def KLM17(O, H, d):
     out.update(KLM17(O, H.difference(infer), d))
     return out
 
+def pigeonhole(m,n,w):
+
+    return 2**(m-1) > ((2*e*(2*w+1)*m)/n)**n
+
+def M (c, n, w):
+    return int(ceil(c * n * log(w,2)))
 
 if __name__ == '__main__':
 
-    n = 20
-    k = 3
+    import sys
+    args = sys.argv[1:]
+
+    k = int(args[0])
+    n = int(args[1])
     w = k
     # inference dimension
     c = 1
+    lb = 1
     while True:
-        m = int(ceil(c * n * log(w,2)))
-        if 2**(m-1) > ((2*e*(2*w+1)*m)/n)**n:
+        m = M(c,n,w)
+        if pigeonhole(m,n,w):
+            ub = c
             break
+        lb = c
         c *= 2
 
+    while lb < ub:
+        c = (lb + ub)//2
+        m = M(c,n,w)
+        if pigeonhole(m,n,w):
+            ub = c
+        else:
+            lb = c+1
+
+    c = ub
+    m = M(c,n,w)
     d = 2*m+n
 
-    O = Oracle(q(n))
+    _q = vector(q(n))
+    _q.set_immutable()
+    O = Oracle(_q)
 
-    _H = set(H(k, n))
-
+    _Hl = list(map(vector,H(k, n)))
+    for v in _Hl: v.set_immutable()
+    _H = set(_Hl)
 
     print('n', n)
     print('k', k)
@@ -284,4 +278,6 @@ if __name__ == '__main__':
     A = KLM17(O, _H, d)
     print('# label queries:', O.label_queries)
     print('# comparison queries:', O.comparison_queries)
-    print('A', A )
+    print('n log^2 n', n*log(n,2)**2)
+    print('{} n log^2 n'.format( (O.label_queries + O.comparison_queries) / (n*log(n,2)**2) ) )
+    # print('A', A )
