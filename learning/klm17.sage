@@ -4,8 +4,6 @@ import ksum
 from math import e
 from math import log
 from math import ceil
-from random import random
-from random import sample
 from functools import total_ordering
 from sage.numerical.mip import MIPSolverException
 
