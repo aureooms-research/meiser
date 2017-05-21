@@ -195,13 +195,20 @@ def pigeonhole(m,n,w):
 def M (c, n, w):
     return int(ceil(c * n * log(w,2)))
 
+
 if __name__ == '__main__':
 
-    import sys
-    args = sys.argv[1:]
+    import argparse
 
-    k = int(args[0])
-    n = int(args[1])
+    parser = argparse.ArgumentParser(description='Solves a random k-SUM instance using the algorithm in [KLM17].')
+    parser.add_argument('-k', type=int, nargs=1, required=True, help='The `k` in k-SUM.')
+    parser.add_argument('-n', type=int, nargs=1, required=True, help='Input size.')
+    parser.add_argument('--check', action='store_true', help='Check solution.')
+
+    args = parser.parse_args()
+
+    k = args.k[0]
+    n = args.n[0]
     w = k
     # inference dimension
     c = 1
@@ -250,6 +257,7 @@ if __name__ == '__main__':
     print('n log^2 n', n*log(n,2)**2)
     print('{} n log^2 n'.format( (O.label_queries + O.comparison_queries) / (n*log(n,2)**2) ) )
 
-    O2 = Oracle(_q)
-    expected = { h : O2.label(h).sign() for h in _H }
-    print('OK', solution == expected )
+    if args.check :
+        O2 = Oracle(_q)
+        expected = { h : O2.label(h).sign() for h in _H }
+        print('OK', solution == expected )
