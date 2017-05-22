@@ -1,6 +1,7 @@
 #!/usr/bin/env sage
 
 import ksum
+import logging
 from math import e
 from math import log
 from math import ceil
@@ -87,11 +88,12 @@ class S (object):
 
     def __init__(self, O, H, m):
 
+        self.O = O
         self.sample = set(sample(H, m))
         self.v = A(O, self.sample)
 
         self._ = [[], [], []]
-        for key, val in self.v.items():
+        for key, val in self.v.iteritems():
             self._[1 + val].append(key)
 
     def pick_side(self):
@@ -104,11 +106,11 @@ class S (object):
             h1 = _sorted[0]
 
         elif _sign == 1:
-            _sorted = sorted(Si, key = O.label)
+            _sorted = sorted(Si, key = self.O.label)
             h1 = _sorted[0]
 
         else:
-            _sorted = list(reversed(sorted(Si, key = O.label)))
+            _sorted = list(reversed(sorted(Si, key = self.O.label)))
             h1 = _sorted[0]
 
 
@@ -154,21 +156,21 @@ def isnonnegativelinearcombination( b , A ) :
 
     try:
         sol = p.solve()
-        print('BINGO!!!')
+        logging.debug('BINGO!!!')
         return True
 
     except MIPSolverException as e:
-        print(e)
+        logging.debug(e)
         return False
 
-def KLM17(O, H, d):
+def KLM17(q, H, d):
     """
         Parameters
         ----------
-        O : Oracle
-            The oracle.
+        q : vector
+            The query point.
 
-        H : list
+        H : set<vector>
             The points to classify.
 
         d : int
@@ -176,16 +178,47 @@ def KLM17(O, H, d):
 
     """
 
-    print('KLM17({},{})'.format(len(H), d))
+    O = Oracle(q)
 
     if len(H) <= 2 * d:
-        return A(O, H)
 
-    _S = S(O, H, 2 * d)
-    out = dict(_S.infer(H))
-    infer = out.keys()
-    out.update(KLM17(O, H.difference(infer), d))
-    return out
+        signs = A(O, H)
+        yield {
+            'n' : len(q) ,
+            'q' : q ,
+            'H' : H ,
+            'd' : d ,
+            'queries' : {
+                'label' : O.label_queries ,
+                'comparison' : O.comparison_queries
+            } ,
+            'S' : H ,
+            'infer(S,x)' : H ,
+            'signs' : signs
+        }
+
+    else :
+
+        _S = S(O, H, 2 * d)
+        signs = dict(_S.infer(H))
+        infer = signs.keys()
+
+        yield {
+            'n' : len(q) ,
+            'q' : q ,
+            'H' : H ,
+            'd' : d ,
+            'queries' : {
+                'label' : O.label_queries ,
+                'comparison' : O.comparison_queries
+            } ,
+            'S' : _S.sample ,
+            'infer(S,x)' : infer ,
+            'signs' : signs
+        }
+
+        for step in KLM17(q, H.difference(infer), d) :
+            yield step
 
 def pigeonhole(m,n,w):
     return 2**(m-1) > ((2*e*(2*w+1)*m)/n)**n
@@ -194,14 +227,17 @@ def M (c, n, w):
     return int(ceil(c * n * log(w,2)))
 
 
-if __name__ == '__main__':
+def main ( ) :
 
+    import json
     import argparse
 
     parser = argparse.ArgumentParser(description='Solves a random k-SUM instance using the algorithm in [KLM17].')
     parser.add_argument('-k', type=int, nargs=1, required=True, help='The `k` in k-SUM.')
     parser.add_argument('-n', type=int, nargs=1, required=True, help='Input size.')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Be verbose.')
     parser.add_argument('--check', action='store_true', help='Check solution.')
+    parser.add_argument('--trace', action='store_true', help='Output trace of the algorithm as JSON.')
 
     args = parser.parse_args()
 
@@ -233,29 +269,67 @@ if __name__ == '__main__':
 
     q = random_vector(RR,n)
     q.set_immutable()
-    O = Oracle(q)
 
     _Hl = list(map(vector,ksum.tuples(k, n)))
     for v in _Hl: v.set_immutable()
     _H = set(_Hl)
 
-    print('n', n)
-    print('k', k)
-    print('w', w)
-    print('c', c)
-    print('m', m)
-    print('d', d)
-    print('2d', 2*d)
-    print('|H|', len(_H))
-    print('q', O._q)
+    if args.verbose:
+        logging.info('n %s', n)
+        logging.info('k %s', k)
+        logging.info('w %s', w)
+        logging.info('c %s', c)
+        logging.info('m %s', m)
+        logging.info('d %s', d)
+        logging.info('2d %s', 2*d)
+        logging.info('|H| %s', len(_H))
+        logging.info('q %s', q)
 
-    solution = KLM17(O, _H, d)
-    print('# label queries:', O.label_queries)
-    print('# comparison queries:', O.comparison_queries)
-    print('n log^2 n', n*log(n,2)**2)
-    print('{} n log^2 n'.format( (O.label_queries + O.comparison_queries) / (n*log(n,2)**2) ) )
+    trace = list( KLM17(q, _H, d) )
+    solution = dict( )
+    for step in trace :
+        solution.update( step['signs'] )
+
+    if args.verbose:
+        label_queries = sum( step['queries']['label'] for step in trace )
+        comparison_queries = sum( step['queries']['comparison'] for step in trace )
+        logging.info('# label queries: %s', label_queries)
+        logging.info('# comparison queries: %s', comparison_queries)
+        logging.info('n log^2 n: %s', n*log(n,2)**2)
+        logging.info('%s n log^2 n' , (label_queries + comparison_queries) / (n*log(n,2)**2) )
 
     if args.check :
-        O2 = Oracle(q)
-        expected = { h : O2.label(h).sign() for h in _H }
-        print('OK', solution == expected )
+        O = Oracle(q)
+        expected = { h : O.label(h).sign() for h in _H }
+        logging.info('OK %s', solution == expected )
+
+    if args.trace :
+
+        import sys
+        import json
+
+        serializable = []
+        for step in trace :
+
+            stepcopy = copy(step)
+
+            stepcopy['n'] = int(stepcopy['n'])
+            stepcopy['q'] = list(map(float,stepcopy['q']))
+            stepcopy['H'] = list( list(map(int,h)) for h in stepcopy['H'] )
+            stepcopy['d'] = int(stepcopy['d'])
+            stepcopy['queries']['label'] = int(stepcopy['queries']['label'])
+            stepcopy['queries']['comparison'] = int(stepcopy['queries']['comparison'])
+            stepcopy['S'] = list( list(map(int,h)) for h in stepcopy['S'] )
+            stepcopy['infer(S,x)'] = list( list(map(int,h)) for h in stepcopy['infer(S,x)'] )
+            stepcopy['signs'] = [ [ list(map(int,h)) , int(s) ] for (h,s) in stepcopy['signs'].iteritems() ]
+
+            serializable.append(stepcopy)
+
+        json.dump(serializable, sys.stdout)
+
+
+if __name__ == '__main__':
+
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+    main()
+
