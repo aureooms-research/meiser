@@ -1,5 +1,6 @@
 #!/usr/bin/env sage
 
+import xy
 import ksum
 import logging
 from math import e
@@ -232,17 +233,29 @@ def main ( ) :
     import json
     import argparse
 
-    parser = argparse.ArgumentParser(description='Solves a random k-SUM instance using the algorithm in [KLM17].')
-    parser.add_argument('-k', type=int, nargs=1, required=True, help='The `k` in k-SUM.')
-    parser.add_argument('-n', type=int, nargs=1, required=True, help='Input size.')
+    parser = argparse.ArgumentParser(description='Solves a random k-SUM-like instance using the algorithm in [KLM17].')
+    parser.add_argument('-n', type=int, required=True, help='Input size.')
     parser.add_argument('-v', '--verbose', action='store_true', help='Be verbose.')
+    parser.add_argument('--ksum', type=int, help='Try with a random k-SUM instance. Needs one argument for `k`.')
+    parser.add_argument('--xy', action='store_true', help='Try with a random sorting X+Y instance.')
     parser.add_argument('--check', action='store_true', help='Check solution.')
     parser.add_argument('--trace', action='store_true', help='Output trace of the algorithm as JSON.')
 
     args = parser.parse_args()
 
-    k = args.k[0]
-    n = args.n[0]
+    n = args.n
+
+    if args.ksum :
+        k = args.ksum
+        H = ksum.tuples(k, n)
+
+    elif args.xy :
+        k = 4
+        H = xy.tuples(n)
+
+    else:
+        raise Exception('Must choose one of --ksum or --xy')
+
     w = k
     # inference dimension
     c = 1
@@ -270,7 +283,7 @@ def main ( ) :
     q = random_vector(RR,n)
     q.set_immutable()
 
-    _Hl = list(map(vector,ksum.tuples(k, n)))
+    _Hl = list(map(vector,H))
     for v in _Hl: v.set_immutable()
     _H = set(_Hl)
 
