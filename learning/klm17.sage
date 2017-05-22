@@ -338,7 +338,7 @@ def main ( ) :
 
             serializable.append(stepcopy)
 
-        json.dump(serializable, sys.stdout)
+        json.dump({ 'trace' : serializable }, sys.stdout)
 
 
 if __name__ == '__main__':
