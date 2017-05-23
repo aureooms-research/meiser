@@ -262,13 +262,51 @@
 
 ### Use trace with python
 
-#### Construct solution
+#### Load data
 
 ```py
 with open('trace.json') as f :
-	data = json.load(f)
+    data = json.load(f)
 trace = data['trace']
+```
+
+#### `.trace[i].case == "general"`
+
+##### Get sample
+
+```py
+S = set(map(tuple, trace[0]['S']))
+```
+
+##### Get signs
+
+```py
+signs = { tuple(h) : s['sign'] for ( h , s ) in trace[0]['signs'].iteritems() }
+```
+
+##### Get inferred set minus sample
+
+```py
+I = set(filter( lambda h : signs[h]['reason'] == 'REASON_IS_INFERRED' , signs.iterkeys() ))
+```
+
+##### Build pairs of consecutive vectors in sorted order of `Si-Si`
+
+```py
+delta = list(zip(trace[0]['sorted'], trace[0]['sorted'][1:]))
+```
+
+##### Determine which pairs infer a given `h` in `I` (might be sensitive to solver's precision)
+
+```py
+h = next(iter(I))
+h_is_inferred_by = set( map( lambda x : x[0] , filter( lambda x : x[1] != 0 , zip( delta , signs[h]['coefficients'] ) ) ) )
+```
+
+#### Construct solution
+
+```py
 solution = dict( )
 for step in trace :
-	solution.update( { tuple(h) : s['sign'] for ( h , s ) in step['signs'].iteritems() } )
+    solution.update( { tuple(h) : s['sign'] for ( h , s ) in step['signs'].iteritems() } )
 ```
