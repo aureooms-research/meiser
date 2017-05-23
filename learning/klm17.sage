@@ -258,7 +258,7 @@ def KLM17(q, H, d, solver = DEFAULT_SOLVER):
         _S = S(O, H, 2 * d)
         signs = dict(_S.infer(H, solver=solver))
 
-        _s = len(_S._sorted) + 1
+        _s = len(_S._sorted)
         _i = len(signs) - 2*d
         logging.info('inferred %s things from %s', _i , _s)
 
