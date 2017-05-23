@@ -1,12 +1,16 @@
 #!/usr/bin/env sage
+import sys
+import json
+import argparse
+import logging
 
 import xy
 import ksum
-import logging
 from math import e
 from math import log
 from math import ceil
 from functools import total_ordering
+from itertools import islice
 from sage.numerical.mip import MIPSolverException
 
 SOLVERS = [
@@ -225,6 +229,8 @@ def KLM17(q, H, d, solver = DEFAULT_SOLVER):
 
     """
 
+    logging.info('KLM17( %s, %s, %d, solver=%s)', len(q), len(H), d, solver)
+
     O = Oracle(q)
 
     if len(H) <= 2 * d:
@@ -251,6 +257,10 @@ def KLM17(q, H, d, solver = DEFAULT_SOLVER):
 
         _S = S(O, H, 2 * d)
         signs = dict(_S.infer(H, solver=solver))
+
+        _s = len(_S._sorted) + 1
+        _i = len(signs) - 2*d
+        logging.info('inferred %s things from %s', _i , _s)
 
         yield {
             'case' : 'general' ,
@@ -286,13 +296,12 @@ def M (c, n, w):
 
 def main ( ) :
 
-    import json
-    import argparse
-
     parser = argparse.ArgumentParser(description='Solves a random k-SUM-like instance using the algorithm in [KLM17].')
     parser.add_argument('-n', type=int, required=True, help='Input size.')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Be verbose.')
-    parser.add_argument('-c', '--check', action='store_true', help='Check solution.')
+    parser.add_argument('-v', '--verbosity', type=str, default='ERROR', help='Log level.', choices=[ 'DEBUG' , 'INFO' , 'WARNING' , 'ERROR' , 'CRITICAL'])
+    parser.add_argument('-i', '--iterations', type=int, default=sys.maxsize, help='Maximum number of iterations to execute.')
+    parser.add_argument('-c', '--check', action='store_true', help='Check solution. Can check partial solution if `iterations` is supplied.')
+    parser.add_argument('-d', '--dimension', type=int, help='Override the inference dimension. Allows to pick smaller samples for small instances for example.')
     parser.add_argument('-t', '--trace', action='store_true', help='Output trace of the algorithm as JSON.')
     parser.add_argument('-s', '--solver', type=str, default=DEFAULT_SOLVER,
     help='Use GLPK for (fast) float solution and PPL for exact rational solution. Default is {}'.format(DEFAULT_SOLVER),
@@ -302,6 +311,9 @@ def main ( ) :
     problems.add_argument('--xy', action='store_true', help='Try with a random sorting X+Y instance.')
 
     args = parser.parse_args()
+
+    numeric_level = getattr(logging, args.verbosity.upper(), None)
+    logging.basicConfig(stream=sys.stderr, level=numeric_level)
 
     n = args.n
 
@@ -321,52 +333,58 @@ def main ( ) :
 
     q.set_immutable()
 
-    # inference dimension
-    c = 1
-    lb = 1
-    while True:
-        m = M(c,n,w)
-        if pigeonhole(m,n,w):
-            ub = c
-            break
-        lb = c
-        c *= 2
+    if args.dimension is not None :
 
-    while lb < ub:
-        c = (lb + ub)//2
-        m = M(c,n,w)
-        if pigeonhole(m,n,w):
-            ub = c
-        else:
-            lb = c+1
+        d = args.dimension
+        c = None
+        m = None
 
-    c = ub
-    m = M(c,n,w)
-    d = 2*m+n
+    else :
+
+        # inference dimension
+        c = 1
+        lb = 1
+        while True:
+            m = M(c,n,w)
+            if pigeonhole(m,n,w):
+                ub = c
+                break
+            lb = c
+            c *= 2
+
+        while lb < ub:
+            c = (lb + ub)//2
+            m = M(c,n,w)
+            if pigeonhole(m,n,w):
+                ub = c
+            else:
+                lb = c+1
+
+        c = ub
+        m = M(c,n,w)
+        d = 2*m+n
 
     _Hl = list(map(vector,H))
     for v in _Hl: v.set_immutable()
     _H = set(_Hl)
 
-    if args.verbose:
-        logging.info('n %s', n)
-        logging.info('w %s', w)
-        logging.info('c %s', c)
-        logging.info('m %s', m)
-        logging.info('d %s', d)
-        logging.info('2d %s', 2*d)
-        logging.info('|H| %s', len(_H))
-        logging.info('q %s', q)
+    logging.info('n %s', n)
+    logging.info('w %s', w)
+    logging.info('c %s', c)
+    logging.info('m %s', m)
+    logging.info('d %s', d)
+    logging.info('2d %s', 2*d)
+    logging.info('|H| %s', len(_H))
+    logging.info('q %s', q)
 
-    trace = list( KLM17(q, _H, d, solver=args.solver) )
+    trace = list( islice(KLM17(q, _H, d, solver=args.solver),args.iterations) )
 
-    if args.verbose:
-        label_queries = sum( step['queries']['label'] for step in trace )
-        comparison_queries = sum( step['queries']['comparison'] for step in trace )
-        logging.info('# label queries: %s', label_queries)
-        logging.info('# comparison queries: %s', comparison_queries)
-        logging.info('n log^2 n: %s', n*log(n,2)**2)
-        logging.info('%s n log^2 n' , (label_queries + comparison_queries) / (n*log(n,2)**2) )
+    label_queries = sum( step['queries']['label'] for step in trace )
+    comparison_queries = sum( step['queries']['comparison'] for step in trace )
+    logging.info('# label queries: %s', label_queries)
+    logging.info('# comparison queries: %s', comparison_queries)
+    logging.info('n log^2 n: %s', n*log(n,2)**2)
+    logging.info('%s n log^2 n' , (label_queries + comparison_queries) / (n*log(n,2)**2) )
 
     if args.check :
 
@@ -376,17 +394,22 @@ def main ( ) :
 
         O = Oracle(q)
         expected = A(O, _H)
+
         if solution == expected :
-            logging.info('check > Solution is correct.')
+            logging.info('check > Solution is correct and complete.')
+
         else:
-            logging.error('check > Solution is incorrect.')
+
+            solved = solution.keys()
+            expected = { h : s for h , s in expected.iteritems() if h in solved }
+
+            if solution == expected :
+                logging.warning('check > Solution is a subset of the expected solution.')
+
+            else:
+                logging.error('check > Solution is incorrect.')
 
     if args.trace :
-
-        import sys
-        import json
-
-        # need to serialize shit for JSON
 
         tracecopy = []
 
@@ -421,7 +444,5 @@ def main ( ) :
 
 
 if __name__ == '__main__':
-
-    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
     main()
 
