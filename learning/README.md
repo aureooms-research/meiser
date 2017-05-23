@@ -6,7 +6,6 @@
 
     git clone https://github.com/aureooms-research/meiser
     cd meiser/learning
-    cd learning
 
 ### Help
 
