@@ -2,6 +2,12 @@
 
 ## How to
 
+### Download
+
+    git clone https://github.com/aureooms-research/meiser
+    cd meiser/learning
+    cd learning
+
 ### Help
 
     $ sage klm17.sage -h
@@ -26,7 +32,7 @@
 
 ### Example
 
-	$ sage klm17.sage --check --verbose --xy -n 20 --trace > trace.json
+	$ sage klm17.sage --check --verbose --xy -n 20 --trace > trace-xy-20.json
 	INFO:root:n 20
 	INFO:root:w 4
 	INFO:root:c 5
