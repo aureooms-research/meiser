@@ -10,7 +10,8 @@
 ### Help
 
     $ sage klm17.sage -h
-    usage: klm17.sage.py [-h] -n N [-v] [-c] [-t]
+    usage: klm17.sage.py [-h] -n N [-v {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
+                         [-i ITERATIONS] [-c] [-d DIMENSION] [-t]
                          [-s {GLPK,GLPK/exact,Coin,CPLEX,CVXOPT,Gurobi,PPL,InteractiveLP}]
                          (--ksum k | --xy)
     
@@ -19,8 +20,15 @@
     optional arguments:
       -h, --help            show this help message and exit
       -n N                  Input size.
-      -v, --verbose         Be verbose.
-      -c, --check           Check solution.
+      -v {DEBUG,INFO,WARNING,ERROR,CRITICAL}, --verbosity {DEBUG,INFO,WARNING,ERROR,CRITICAL}
+                            Log level.
+      -i ITERATIONS, --iterations ITERATIONS
+                            Maximum number of iterations to execute.
+      -c, --check           Check solution. Can check partial solution if
+                            `iterations` is supplied.
+      -d DIMENSION, --dimension DIMENSION
+                            Override the inference dimension. Allows to pick
+                            smaller samples for small instances for example.
       -t, --trace           Output trace of the algorithm as JSON.
       -s {GLPK,GLPK/exact,Coin,CPLEX,CVXOPT,Gurobi,PPL,InteractiveLP}, --solver {GLPK,GLPK/exact,Coin,CPLEX,CVXOPT,Gurobi,PPL,InteractiveLP}
                             Use GLPK for (fast) float solution and PPL for exact
@@ -31,7 +39,7 @@
 
 ### Example
 
-	$ sage klm17.sage --check --verbose --xy -n 20 --trace > trace-xy-20.json
+	$ sage klm17.sage --check -v DEBUG --xy -n 20 --trace > trace-xy-20.json
 	INFO:root:n 20
 	INFO:root:w 4
 	INFO:root:c 5
