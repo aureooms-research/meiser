@@ -54,7 +54,7 @@
 	  "trace"
 	]
 
-#### .argv
+#### `.argv`
 
 	$ jq < trace.json '.argv'
 	[
@@ -67,12 +67,12 @@
 	  "--trace"
 	]
 
-#### .trace
+#### `.trace`
 
 	$ jq < trace.json '.trace'
 	[ ... ]
 
-#### Steps (.trace[i])
+#### Steps (`.trace[i]`)
 
 ##### General case
 
@@ -119,7 +119,7 @@
 	"base"
 
 
-##### .trace[i].queries
+##### `.trace[i].queries`
 
 	$ jq < trace.json '.trace[0].queries'
 	{
@@ -128,17 +128,17 @@
 	  "label": 840
 	}
 
-##### .trace[i].d
+##### `.trace[i].d`
 
 	$ jq < trace.json '.trace[0].d'
 	420
 
-##### .trace[i].n
+##### `.trace[i].n`
 
 	$ jq < trace.json '.trace[0].n'
 	20
 
-##### .trace[i].q
+##### `.trace[i].q`
 
 	$ jq < trace.json '.trace[0].q'
 	[
@@ -164,7 +164,7 @@
 	  0.9608203093789778
 	]
 
-##### .trace[i].H
+##### `.trace[i].H`
 
 	$ jq < trace.json '.trace[0].H'
 	[
@@ -172,7 +172,7 @@
 	  ...
 	]
 
-##### .trace[i].signs
+##### `.trace[i].signs`
 
 	$ jq < trace.json '.trace[0].signs'
 	[
@@ -217,7 +217,7 @@
 	  ...
 	]
 
-##### .trace[i].S
+##### `.trace[i].S`
 
 	$ jq < trace.json '.trace[0].S'
 	[
@@ -225,7 +225,7 @@
 	  ...
 	]
 
-##### .trace[i]["S-"]
+##### `.trace[i]["S-"]`
 
 	$ jq < trace.json '.trace[0]["S-"]'
 	[
@@ -233,12 +233,12 @@
 	  ...
 	]
 
-##### .trace[i]["S0"]
+##### `.trace[i]["S0"]`
 
 	$ jq < trace.json '.trace[0]["S0"]'
 	[]
 
-##### .trace[i]["S+"]
+##### `.trace[i]["S+"]`
 
 	$ jq < trace.json '.trace[0]["S+"]'
 	[
@@ -246,12 +246,12 @@
 	  ...
 	]
 
-##### .trace[i].side
+##### `.trace[i].side`
 
 	$ jq < trace.json '.trace[0].side'
 	1
 
-##### .trace[i].sorted
+##### `.trace[i].sorted`
 
 	$ jq < trace.json '.trace[0].sorted
 	[
