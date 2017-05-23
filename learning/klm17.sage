@@ -9,6 +9,37 @@ from math import ceil
 from functools import total_ordering
 from sage.numerical.mip import MIPSolverException
 
+SOLVERS = [
+    "GLPK" ,
+    "GLPK/exact" ,
+    "Coin" ,
+    "CPLEX" ,
+    "CVXOPT" ,
+    "Gurobi" ,
+    "PPL" ,
+    "InteractiveLP"
+]
+
+serialize_int_vector = lambda v : list(map(int,v))
+serialize_float_vector = lambda v : list(map(float,v))
+def serialize_sign ( s ) :
+
+    scopy = {
+        'sign' : int(s['sign']) ,
+        'reason' : s['reason']
+    }
+
+    if s['reason'] == REASON_IS_INFERRED :
+        scopy['coefficients'] = serialize_float_vector(vector(s['coefficients']))
+
+    return scopy
+
+REASON_IN_SAMPLE = 'REASON_IN_SAMPLE'
+REASON_IS_INFERRED = 'REASON_IS_INFERRED'
+REASON_BASE_CASE = 'REASON_BASE_CASE'
+
+DEFAULT_SOLVER = 'GLPK'
+
 @total_ordering
 class Label (object):
 
@@ -97,6 +128,9 @@ class S (object):
         for key, val in self.v.iteritems():
             self._[1 + val].append(key)
 
+        self._side = None
+        self._sorted = None
+
     def pick_side(self):
 
         Si = max(self._, key=len)
@@ -114,6 +148,8 @@ class S (object):
             _sorted = list(reversed(sorted(Si, key = self.O.label)))
             h1 = _sorted[0]
 
+        self._sorted = _sorted
+        self._side = _sign
 
         delta = [ b - a for (a,b) in zip(_sorted,_sorted[1:]) ]
 
@@ -123,34 +159,43 @@ class S (object):
         return ( _sign , h1 , A )
 
 
-    def infer(self, H):
+    def infer(self, H, solver=DEFAULT_SOLVER):
 
         _sign, h1, A = self.pick_side()
 
+
         for h in H:
 
-            s = infer_one(_sign, self.v, h1, A, h)
+            s = infer_one(_sign, self.v, h1, A, h, solver=solver)
 
             if s is not None:
 
                 yield ( h , s )
 
 
-def infer_one( _sign , S , h1 , A , h ) :
+def infer_one( _sign , S , h1 , A , h , solver=DEFAULT_SOLVER ) :
 
     if h in S :
-        return S[h]
+        return {
+            'sign' : S[h] ,
+            'reason' : REASON_IN_SAMPLE
+        }
 
-    elif isnonnegativelinearcombination(h-h1, A):
-        return _sign
+    yes , coefficients = isnonnegativelinearcombination(h-h1, A, solver=solver)
+
+    if yes:
+        return {
+            'sign' : _sign ,
+            'reason' : REASON_IS_INFERRED ,
+            'coefficients' : coefficients
+        }
 
     else :
         return None
 
-def isnonnegativelinearcombination( b , A ) :
+def isnonnegativelinearcombination( b , A , solver = DEFAULT_SOLVER ) :
 
-    p = MixedIntegerLinearProgram(solver = "GLPK")
-    # p = MixedIntegerLinearProgram(solver = "PPL")
+    p = MixedIntegerLinearProgram(solver=solver)
     x = p.new_variable(nonnegative=True, real=True)
     p.add_constraint(A*x == b)
     p.set_objective(None) #just looking for feasible solution
@@ -158,13 +203,14 @@ def isnonnegativelinearcombination( b , A ) :
     try:
         sol = p.solve()
         logging.debug('BINGO!!!')
-        return True
+        coefficients = dict( p.get_values(x).iteritems() )
+        return ( True , coefficients )
 
     except MIPSolverException as e:
         logging.debug(e)
-        return False
+        return ( False , None )
 
-def KLM17(q, H, d):
+def KLM17(q, H, d, solver = DEFAULT_SOLVER):
     """
         Parameters
         ----------
@@ -185,40 +231,50 @@ def KLM17(q, H, d):
 
         signs = A(O, H)
         yield {
+            'case' : 'base' ,
             'n' : len(q) ,
             'q' : q ,
             'H' : H ,
             'd' : d ,
             'queries' : {
                 'label' : O.label_queries ,
-                'comparison' : O.comparison_queries
+                'comparison' : O.comparison_queries ,
+                'total' : O.label_queries + O.comparison_queries
             } ,
-            'S' : H ,
-            'infer(S,x)' : H ,
-            'signs' : signs
+            'signs' : { h : {
+                'sign' : s ,
+                'reason' : REASON_BASE_CASE
+            } for h , s in signs.iteritems() }
         }
 
     else :
 
         _S = S(O, H, 2 * d)
-        signs = dict(_S.infer(H))
-        infer = signs.keys()
+        signs = dict(_S.infer(H, solver=solver))
 
         yield {
+            'case' : 'general' ,
             'n' : len(q) ,
             'q' : q ,
             'H' : H ,
             'd' : d ,
             'queries' : {
                 'label' : O.label_queries ,
-                'comparison' : O.comparison_queries
+                'comparison' : O.comparison_queries ,
+                'total' : O.label_queries + O.comparison_queries
             } ,
+            'signs' : signs ,
             'S' : _S.sample ,
-            'infer(S,x)' : infer ,
-            'signs' : signs
+            'S-' : _S._[0] ,
+            'S0' : _S._[1] ,
+            'S+' : _S._[2] ,
+            'side' : _S._side ,
+            'sorted' : _S._sorted
         }
 
-        for step in KLM17(q, H.difference(infer), d) :
+        infer = signs.keys()
+
+        for step in KLM17(q, H.difference(infer), d, solver=solver) :
             yield step
 
 def pigeonhole(m,n,w):
@@ -236,27 +292,35 @@ def main ( ) :
     parser = argparse.ArgumentParser(description='Solves a random k-SUM-like instance using the algorithm in [KLM17].')
     parser.add_argument('-n', type=int, required=True, help='Input size.')
     parser.add_argument('-v', '--verbose', action='store_true', help='Be verbose.')
-    parser.add_argument('--ksum', type=int, help='Try with a random k-SUM instance. Needs one argument for `k`.')
-    parser.add_argument('--xy', action='store_true', help='Try with a random sorting X+Y instance.')
-    parser.add_argument('--check', action='store_true', help='Check solution.')
-    parser.add_argument('--trace', action='store_true', help='Output trace of the algorithm as JSON.')
+    parser.add_argument('-c', '--check', action='store_true', help='Check solution.')
+    parser.add_argument('-t', '--trace', action='store_true', help='Output trace of the algorithm as JSON.')
+    parser.add_argument('-s', '--solver', type=str, default=DEFAULT_SOLVER,
+    help='Use GLPK for (fast) float solution and PPL for exact rational solution. Default is {}'.format(DEFAULT_SOLVER),
+    choices=SOLVERS)
+    problems = parser.add_mutually_exclusive_group(required=True)
+    problems.add_argument('--ksum', type=int, metavar='k', help='Try with a random k-SUM instance. Needs one argument for `k`.')
+    problems.add_argument('--xy', action='store_true', help='Try with a random sorting X+Y instance.')
 
     args = parser.parse_args()
 
     n = args.n
 
+    q = random_vector(RR,n)
+
     if args.ksum :
         k = args.ksum
+        w = k
         H = ksum.tuples(k, n)
+        q = vector(sorted(q)) # sort the input
 
-    elif args.xy :
-        k = 4
+    if args.xy :
+        assert n % 2 == 0
+        w = 4
         H = xy.tuples(n)
+        q = vector(sorted(list(q)[::2])+sorted(list(q)[1::2])) # sort the input halves
 
-    else:
-        raise Exception('Must choose one of --ksum or --xy')
+    q.set_immutable()
 
-    w = k
     # inference dimension
     c = 1
     lb = 1
@@ -280,16 +344,12 @@ def main ( ) :
     m = M(c,n,w)
     d = 2*m+n
 
-    q = random_vector(RR,n)
-    q.set_immutable()
-
     _Hl = list(map(vector,H))
     for v in _Hl: v.set_immutable()
     _H = set(_Hl)
 
     if args.verbose:
         logging.info('n %s', n)
-        logging.info('k %s', k)
         logging.info('w %s', w)
         logging.info('c %s', c)
         logging.info('m %s', m)
@@ -298,10 +358,7 @@ def main ( ) :
         logging.info('|H| %s', len(_H))
         logging.info('q %s', q)
 
-    trace = list( KLM17(q, _H, d) )
-    solution = dict( )
-    for step in trace :
-        solution.update( step['signs'] )
+    trace = list( KLM17(q, _H, d, solver=args.solver) )
 
     if args.verbose:
         label_queries = sum( step['queries']['label'] for step in trace )
@@ -312,33 +369,55 @@ def main ( ) :
         logging.info('%s n log^2 n' , (label_queries + comparison_queries) / (n*log(n,2)**2) )
 
     if args.check :
+
+        solution = dict( )
+        for step in trace :
+            solution.update( { h : s['sign'] for ( h , s ) in step['signs'].iteritems() } )
+
         O = Oracle(q)
-        expected = { h : O.label(h).sign() for h in _H }
-        logging.info('OK %s', solution == expected )
+        expected = A(O, _H)
+        if solution == expected :
+            logging.info('check > Solution is correct.')
+        else:
+            logging.error('check > Solution is incorrect.')
 
     if args.trace :
 
         import sys
         import json
 
-        serializable = []
+        # need to serialize shit for JSON
+
+        tracecopy = []
+
         for step in trace :
 
             stepcopy = copy(step)
 
-            stepcopy['n'] = int(stepcopy['n'])
-            stepcopy['q'] = list(map(float,stepcopy['q']))
-            stepcopy['H'] = list( list(map(int,h)) for h in stepcopy['H'] )
-            stepcopy['d'] = int(stepcopy['d'])
-            stepcopy['queries']['label'] = int(stepcopy['queries']['label'])
-            stepcopy['queries']['comparison'] = int(stepcopy['queries']['comparison'])
-            stepcopy['S'] = list( list(map(int,h)) for h in stepcopy['S'] )
-            stepcopy['infer(S,x)'] = list( list(map(int,h)) for h in stepcopy['infer(S,x)'] )
-            stepcopy['signs'] = [ [ list(map(int,h)) , int(s) ] for (h,s) in stepcopy['signs'].iteritems() ]
+            stepcopy['n'] = int(step['n'])
+            stepcopy['q'] = serialize_float_vector(step['q'])
+            stepcopy['H'] = list(map(serialize_int_vector, step['H'] ))
+            stepcopy['d'] = int(step['d'])
 
-            serializable.append(stepcopy)
+            stepcopy['queries'] = {}
+            for t in [ 'label' , 'comparison' , 'total' ] :
+                stepcopy['queries'][t] = int(step['queries'][t])
 
-        json.dump({ 'trace' : serializable }, sys.stdout)
+            stepcopy['signs'] = [ [ serialize_int_vector(h) , serialize_sign(s) ] for (h,s) in step['signs'].iteritems() ]
+
+            if stepcopy['case'] == 'general' :
+
+                for S in [ 'S' , 'S0' , 'S-' , 'S+' , 'sorted' ] :
+                    stepcopy[S] = list(map(serialize_int_vector, step[S]))
+
+                stepcopy['side'] = int(step['side'])
+
+            tracecopy.append(stepcopy)
+
+        json.dump( {
+            'argv' : sys.argv ,
+            'trace' : tracecopy
+        }, sys.stdout)
 
 
 if __name__ == '__main__':
