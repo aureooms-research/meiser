@@ -288,7 +288,7 @@ S = set(map(tuple, trace[0]['S']))
 ##### Get signs
 
 ```py
-signs = { tuple(h) : s['sign'] for ( h , s ) in trace[0]['signs'].iteritems() }
+signs = { tuple(h) : s['sign'] for ( h , s ) in trace[0]['signs'] }
 ```
 
 ##### Get inferred set minus sample
