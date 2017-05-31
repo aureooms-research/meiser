@@ -36,6 +36,7 @@
       --ksum k              Try with a random k-SUM instance. Needs one argument
                             for `k`.
       --xy                  Try with a random sorting X+Y instance.
+      --gpt                 Try with a random GPT instance.
 
 ### Example
 

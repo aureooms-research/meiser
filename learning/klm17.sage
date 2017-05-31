@@ -6,6 +6,7 @@ import logging
 
 import xy
 import ksum
+import gpt
 from math import e
 from math import log
 from math import ceil
@@ -309,27 +310,39 @@ def main ( ) :
     problems = parser.add_mutually_exclusive_group(required=True)
     problems.add_argument('--ksum', type=int, metavar='k', help='Try with a random k-SUM instance. Needs one argument for `k`.')
     problems.add_argument('--xy', action='store_true', help='Try with a random sorting X+Y instance.')
+    problems.add_argument('--gpt', action='store_true', help='Try with a random GPT instance.')
 
     args = parser.parse_args()
 
     numeric_level = getattr(logging, args.verbosity.upper(), None)
     logging.basicConfig(stream=sys.stderr, level=numeric_level)
 
-    n = args.n
-
-    q = random_vector(RR,n)
-
     if args.ksum :
+        N = args.n
+        n = N
         k = args.ksum
         w = k
         H = ksum.tuples(k, n)
+        q = random_vector(RR,n)
         q = vector(sorted(q)) # sort the input
 
     if args.xy :
+        N = args.n
+        n = N
         assert n % 2 == 0
         w = 4
         H = xy.tuples(n)
+        q = random_vector(RR,n)
         q = vector(sorted(list(q)[::2])+sorted(list(q)[1::2])) # sort the input halves
+
+    if args.gpt :
+        N = args.n
+        n = N**2
+        w = 6
+        H = gpt.tuples(N)
+        r = random_vector(RR,N)
+        s = random_vector(RR,N)
+        q = vector(x*y for y in s for x in r)
 
     q.set_immutable()
 
@@ -383,8 +396,8 @@ def main ( ) :
     comparison_queries = sum( step['queries']['comparison'] for step in trace )
     logging.info('# label queries: %s', label_queries)
     logging.info('# comparison queries: %s', comparison_queries)
-    logging.info('n log^2 n: %s', n*log(n,2)**2)
-    logging.info('%s n log^2 n' , (label_queries + comparison_queries) / (n*log(n,2)**2) )
+    logging.info('N log^2 N: %s', N*log(N,2)**2)
+    logging.info('%s N log^2 N' , (label_queries + comparison_queries) / (N*log(N,2)**2) )
 
     if args.check :
 
