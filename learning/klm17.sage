@@ -340,9 +340,9 @@ def main ( ) :
         n = N**2
         w = 6
         H = gpt.tuples(N)
-        r = random_vector(RR,N)
-        s = random_vector(RR,N)
-        q = vector(x*y for y in s for x in r)
+        X = vector(sorted(random_vector(RR,N))) # points sorted by x coordinate
+        Y = random_vector(RR,N)
+        q = vector(x*y for y in Y for x in X)
 
     q.set_immutable()
 
@@ -450,10 +450,21 @@ def main ( ) :
 
             tracecopy.append(stepcopy)
 
-        json.dump( {
+        blob = {
             'argv' : sys.argv ,
+            'args' : vars(args) ,
             'trace' : tracecopy
-        }, sys.stdout)
+        }
+
+        if args.gpt :
+
+            blob['meta'] = {
+                'n' : int(N) ,
+                'x' : serialize_float_vector(X) ,
+                'y' : serialize_float_vector(Y) ,
+            }
+
+        json.dump(blob, sys.stdout)
 
 
 if __name__ == '__main__':
